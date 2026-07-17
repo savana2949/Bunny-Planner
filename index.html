@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Cute Planner</title>
+    <style>
+        body { font-family: 'Quicksand', sans-serif; background-color: #fdf6f7; padding: 20px; color: #555; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(255,183,197,0.3); }
+        h1, h2 { color: #ffb7c5; text-align: center; }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; border-radius: 10px; border: 1px solid #ffd1dc; box-sizing: border-box; }
+        button { background-color: #ffb7c5; color: white; cursor: pointer; border: none; font-weight: bold; }
+        .del-btn { background-color: #ffcccc; color: #ff6666; width: auto !important; padding: 2px 8px !important; margin-left: 5px; }
+        .class-card { background: #fff5f7; margin: 10px 0; padding: 15px; border-radius: 15px; cursor: pointer; border: 2px solid #ffb7c5; display: flex; justify-content: space-between; align-items: center; }
+        .task { background: #fff; margin: 5px 0; padding: 10px; border-radius: 10px; display: flex; justify-content: space-between; border: 1px solid #eee; align-items: center; }
+        .done { text-decoration: line-through; opacity: 0.5; }
+        .datetime-container { display: flex; gap: 10px; }
+        .datetime-container input { width: 50%; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+    <h1 id="viewTitle">My Classes</h1>
+    <div id="mainView"></div>
+</div>
+
+<script>
+    let state = { classes: JSON.parse(localStorage.getItem("plannerData") || "{}"), currentClass: null };
+
+    function addClass() {
+        let name = document.getElementById("className").value;
+        if (name) { state.classes[name] = { assignments: [] }; save(); render(); }
+    }
+
+    function deleteClass(name, event) {
+        event.stopPropagation();
+        delete state.classes[name];
+        save(); render();
+    }
+
+    function addAssignment() {
+        let title = document.getElementById("assignTitle").value;
+        let date = document.getElementById("assignDate").value;
+        let time = document.getElementById("assignTime").value;
+        if (title && date) {
+            state.classes[state.currentClass].assignments.push({ title, date, time: time || "23:59", done: false });
+            save(); render();
+        }
+    }
+
+    function deleteAssignment(index) {
+        state.classes[state.currentClass].assignments.splice(index, 1);
+        save(); render();
+    }
+
+    function toggleTask(index) {
+        state.classes[state.currentClass].assignments[index].done = !state.classes[state.currentClass].assignments[index].done;
+        save(); render();
+    }
+
+    // Helper to format time to a cute 12-hour AM/PM format
+    function formatTime(timeStr) {
+        if (!timeStr) return "";
+        let [hours, minutes] = timeStr.split(":");
+        let ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12 || 12;
+        return `${hours}:${minutes} ${ampm}`;
+    }
+
+    function render() {
+        let app = document.getElementById("mainView");
+        if (!state.currentClass) {
+            document.getElementById("viewTitle").innerText = "My Classes";
+            app.innerHTML = `<input type="text" id="className" placeholder="New Class Name"><button onclick="addClass()">Add Class</button><div id="classList"></div>`;
+            Object.keys(state.classes).forEach(name => {
+                document.getElementById("classList").innerHTML += `<div class="class-card" onclick="state.currentClass='${name}';render()">${name} 
+                <button class="del-btn" onclick="deleteClass('${name}', event)">✕</button></div>`;
+            });
+        } else {
+            document.getElementById("viewTitle").innerText = state.currentClass;
+            
+            // Sort by combined date and time
+            let assignments = state.classes[state.currentClass].assignments.sort((a, b) => {
+                return new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`);
+            });
+
+            app.innerHTML = `
+                <button onclick="state.currentClass=null;render()">← Back to Classes</button>
+                <input type="text" id="assignTitle" placeholder="Assignment Title">
+                <div class="datetime-container">
+                    <input type="date" id="assignDate">
+                    <input type="time" id="assignTime">
+                </div>
+                <button onclick="addAssignment()">Add Assignment</button>
+                <h3>Assignments</h3>
+                <div id="todoList"></div>
+            `;
+
+            assignments.forEach((a, i) => {
+                let displayTime = a.time ? ` at ${formatTime(a.time)}` : "";
+                document.getElementById("todoList").innerHTML += `
+                    <div class="task ${a.done ? 'done' : ''}">
+                        <div>
+                            <b>${a.title}</b><br>
+                            <small style="color: #888;">Due: ${a.date}${displayTime}</small>
+                        </div>
+                        <div>
+                            <button style="width:auto" onclick="toggleTask(${i})">✓</button>
+                            <button class="del-btn" onclick="deleteAssignment(${i})">✕</button>
+                        </div>
+                    </div>`;
+            });
+        }
+    }
+
+    function save() { localStorage.setItem("plannerData", JSON.stringify(state.classes)); }
+    render();
+</script>
+</body>
+</html>
